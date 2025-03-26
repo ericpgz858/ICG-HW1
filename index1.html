@@ -12,13 +12,10 @@
     modify fragment shader or write another one
     to implement flat, gouraud and phong shading
  -->
-<script id="flatfragmentShader" type="fragment">
+ <script id="flatfragmentShader" type="fragment">
     #extension GL_OES_standard_derivatives : enable
     precision highp float;
 
-    // uniform vec3 lightColor1;
-    // uniform vec3 lightColor2;
-    // uniform vec3 lightColor3;
     uniform vec3 lightPosition1;
     uniform vec3 lightPosition2;
     uniform vec3 lightPosition3;
@@ -30,63 +27,74 @@
 
     varying vec4 fragcolor;
     varying vec3 mvVertex;
+    varying float vClipDistance; // Receive clip distance from vertex shader
+
     void main(void) {
+        // Apply clipping: discard fragments behind the clipping plane
+        if (vClipDistance < 0.0) {
+            discard;
+        }
+
         vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
         vec3 lightColor2 = vec3(1.0, 1.0, 1.0);
         vec3 lightColor3 = vec3(1.0, 1.0, 1.0);
-        /* ambient */
+
+        /* Ambient */
         vec3 ambient_color = Ka * vec3(fragcolor);
 
-        /* diffuse */
+        /* Diffuse */
         vec3 dx = dFdx(mvVertex);
         vec3 dy = dFdy(mvVertex);
-        vec3 normal = normalize(cross(dx,dy));
+        vec3 normal = normalize(cross(dx, dy));
         
         vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
-        float diffuseCos1 = max(dot(normal, lightDirection1),0.0);
+        float diffuseCos1 = max(dot(normal, lightDirection1), 0.0);
         vec3 diffuseColor1 = lightColor1 * Kd * vec3(fragcolor) * diffuseCos1;
         
         vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
-        float diffuseCos2 = max(dot(normal, lightDirection2),0.0);
+        float diffuseCos2 = max(dot(normal, lightDirection2), 0.0);
         vec3 diffuseColor2 = lightColor2 * Kd * vec3(fragcolor) * diffuseCos2;
         
         vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
-        float diffuseCos3 = max(dot(normal, lightDirection3),0.0);
+        float diffuseCos3 = max(dot(normal, lightDirection3), 0.0);
         vec3 diffuseColor3 = lightColor3 * Kd * vec3(fragcolor) * diffuseCos3;
 
-        /* specular */
+        /* Specular */
         vec3 cameraDirection = normalize(-mvVertex);
 
         vec3 reflectionDirection1 = reflect(-lightDirection1, normal);
-        float specular_cos_n1 = pow(max(dot(reflectionDirection1,cameraDirection), 0.0), 1.0);
+        float specular_cos_n1 = pow(max(dot(reflectionDirection1, cameraDirection), 0.0), Shininess);
         vec3 specular_color1 = Ks * lightColor1 * specular_cos_n1;
         
         vec3 reflectionDirection2 = reflect(-lightDirection2, normal);
-        float specular_cos_n2 = pow(max(dot(reflectionDirection2,cameraDirection), 0.0), 1.0);
+        float specular_cos_n2 = pow(max(dot(reflectionDirection2, cameraDirection), 0.0), Shininess);
         vec3 specular_color2 = Ks * lightColor2 * specular_cos_n2;
         
         vec3 reflectionDirection3 = reflect(-lightDirection3, normal);
-        float specular_cos_n3 = pow(max(dot(reflectionDirection3,cameraDirection), 0.0), 1.0);
+        float specular_cos_n3 = pow(max(dot(reflectionDirection3, cameraDirection), 0.0), Shininess);
         vec3 specular_color3 = Ks * lightColor3 * specular_cos_n3;
         
         vec3 color = ambient_color + diffuseColor1 + diffuseColor2 + diffuseColor3 + specular_color1 + specular_color2 + specular_color3;
         gl_FragColor = vec4(color, 1.0);
     }
 </script>
+
 <script id="gouraudfragmentShader" type="fragment">
     precision mediump float;
     varying vec4 fragcolor;
+    varying float vClipDistance; // Receive clip distance from vertex shader
 
     void main(void) {
+        if (vClipDistance < 0.0) {
+            discard; // Discard fragments behind the clipping plane
+        }
         gl_FragColor = fragcolor;
     }
 </script>
+
 <script id="phongfragmentShader" type="fragment">
     precision mediump float;
 
-    // uniform vec3 lightColor1;
-    // uniform vec3 lightColor2;
-    // uniform vec3 lightColor3;
     uniform vec3 lightPosition1;
     uniform vec3 lightPosition2;
     uniform vec3 lightPosition3;
@@ -99,29 +107,35 @@
     varying vec4 fragcolor;
     varying vec3 normal;
     varying vec3 mvVertex;
+    varying float vClipDistance; // Receive clip distance from vertex shader
 
     void main(void) {
+        // Apply clipping: discard fragments behind the clipping plane
+        if (vClipDistance < 0.0) {
+            discard;
+        }
+
         vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
         vec3 lightColor2 = vec3(1.0, 1.0, 1.0);
         vec3 lightColor3 = vec3(1.0, 1.0, 1.0);
 
-        /* ambient */
-        vec3  ambientColor = Ka * vec3(fragcolor);
+        /* Ambient */
+        vec3 ambientColor = Ka * vec3(fragcolor);
         
-        /* diffuse */
+        /* Diffuse */
         vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
-        float diffuseCos1 = max(dot(normal, lightDirection1),0.0);
+        float diffuseCos1 = max(dot(normal, lightDirection1), 0.0);
         vec3 diffuseColor1 = lightColor1 * Kd * vec3(fragcolor) * diffuseCos1;
         
         vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
-        float diffuseCos2 = max(dot(normal, lightDirection2),0.0);
+        float diffuseCos2 = max(dot(normal, lightDirection2), 0.0);
         vec3 diffuseColor2 = lightColor2 * Kd * vec3(fragcolor) * diffuseCos2;
         
         vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
-        float diffuseCos3 = max(dot(normal, lightDirection3),0.0);
+        float diffuseCos3 = max(dot(normal, lightDirection3), 0.0);
         vec3 diffuseColor3 = lightColor3 * Kd * vec3(fragcolor) * diffuseCos3;
         
-        /* specular */
+        /* Specular */
         vec3 cameraDirection = normalize(-mvVertex);
 
         vec3 reflectionDirection1 = reflect(-lightDirection1, normal);
@@ -138,9 +152,10 @@
         
         vec3 color = ambientColor + diffuseColor1 + diffuseColor2 + diffuseColor3 + specularColor1 + specularColor2 + specularColor3;
 
-        gl_FragColor = vec4(color,1.0);
+        gl_FragColor = vec4(color, 1.0);
     }
 </script>
+
 <!-- 
     TODO HERE:
     modify vertex shader or write another one
@@ -151,7 +166,7 @@
     only Teapot.json has extra attribute "vertexTextureCoords"
     which is used for texture mappping.
  -->
-<script id="flatvertexShader" type="vertex">
+ <script id="flatvertexShader" type="vertex">
     #extension GL_OES_standard_derivatives : enable
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
@@ -159,29 +174,33 @@
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
 
     varying vec4 fragcolor;
     varying vec3 mvVertex;
+    varying float vClipDistance; // Pass clip distance to fragment shader
 
     void main(void) {
-        mvVertex = (uMVMatrix * vec4(aVertexPosition,1.0)).xyz;
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        
+        // Compute signed distance to clipping plane
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
         fragcolor = vec4(aFrontColor.rgb, 1.0);
 
-        // useless code, prevent aVertexNormal been removed during optimization
-        if(dot(aVertexNormal, aVertexNormal) < 0.0){
+        // Prevent aVertexNormal from being removed by optimization
+        if (dot(aVertexNormal, aVertexNormal) < 0.0) {
             fragcolor = vec4(aFrontColor.rgb, 1.0);
         }
     }
 </script>
+
 <script id="gouraudvertexShader" type="vertex">
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
     attribute vec3 aVertexNormal;
 
-    // uniform vec3 lightColor1;
-    // uniform vec3 lightColor2;
-    // uniform vec3 lightColor3;
     uniform vec3 lightPosition1;
     uniform vec3 lightPosition2;
     uniform vec3 lightPosition3;
@@ -193,8 +212,10 @@
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
 
     varying vec4 fragcolor;
+    varying float vClipDistance; // Pass clip distance to fragment shader
 
     void main(void) {
         vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
@@ -204,28 +225,30 @@
         mat3 normalMatrix = mat3(uMVMatrix);
         vec3 mvNormal =  (normalMatrix * aVertexNormal);
 
-        // gouraud = ambient + diffuse + specular
-        // prepare
+        // Compute clipping distance
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        // Gouraud shading calculations
         vec3 gouraud = vec3(0.0);
-        vec3 cameraDirection = - normalize(mvVertex);
+        vec3 cameraDirection = -normalize(mvVertex);
         vec3 normal = normalize(mvNormal);
 
         vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
-        vec3 H1 = normalize(lightDirection1+cameraDirection);
+        vec3 H1 = normalize(lightDirection1 + cameraDirection);
         vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
-        vec3 H2 = normalize(lightDirection2+cameraDirection);
+        vec3 H2 = normalize(lightDirection2 + cameraDirection);
         vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
-        vec3 H3 = normalize(lightDirection3+cameraDirection);
+        vec3 H3 = normalize(lightDirection3 + cameraDirection);
 
-        // ambient
+        // Ambient component
         vec3 ambient = aFrontColor * Ka;
         
-        // diffuse
+        // Diffuse component
         vec3 diffuse1 = lightColor1 * aFrontColor * max(dot(lightDirection1, normal), 0.0) * Kd;
         vec3 diffuse2 = lightColor2 * aFrontColor * max(dot(lightDirection2, normal), 0.0) * Kd;
         vec3 diffuse3 = lightColor3 * aFrontColor * max(dot(lightDirection3, normal), 0.0) * Kd;
 
-        // specular
+        // Specular component
         vec3 specular1 = lightColor1 * pow(max(dot(H1, normal), 0.0), Shininess) * Ks;
         vec3 specular2 = lightColor2 * pow(max(dot(H2, normal), 0.0), Shininess) * Ks;
         vec3 specular3 = lightColor3 * pow(max(dot(H3, normal), 0.0), Shininess) * Ks;
@@ -236,6 +259,7 @@
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
+
 <script id="phongvertexShader" type="vertex">
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
@@ -243,18 +267,25 @@
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
 
     varying vec3 normal;
     varying vec4 fragcolor;
     varying vec3 mvVertex;
+    varying float vClipDistance; // Pass clip distance to fragment shader
 
     void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
         mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
         normal = normalize(mat3(uMVMatrix) * aVertexNormal);
-        fragcolor = vec4(aFrontColor,1.0);
+        fragcolor = vec4(aFrontColor, 1.0);
+
+        // Compute signed distance to clipping plane
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
+
 
 <script type="text/javascript">
     // common variables
@@ -449,6 +480,14 @@
         mat4.rotate(mvMatrix, degToRad(rotateVec[1] + teapotAngle), [0, 1, 0]);
         mat4.rotate(mvMatrix, degToRad(rotateVec[2]), [0, 0, 1]);
 
+        // Apply Scaling
+        var scaleVec = update_scale();
+        mat4.scale(mvMatrix, scaleVec);
+
+        // Apply Shear
+        var shearMat = getShearMatrix(update_shear());
+        mat4.multiply(mvMatrix, shearMat, mvMatrix);
+
         setMatrixUniforms();
 
         // Setup teapot position data
@@ -486,6 +525,11 @@
         gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition2"), light_locations2);
         gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition3"), light_locations3);
         gl.uniform1f(gl.getUniformLocation(shaderProgram, "Shininess"), 1.0);
+
+        // Pass 3D Clipping Planes
+        const clippingPlane = [1.0, 0, 0.0, update_clip_planes()];
+        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "uClippingPlane"), new Float32Array(clippingPlane));
+
 
         gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
     }
@@ -561,6 +605,58 @@
         return vec3.create([rx, ry, rz]);
     }
 
+    function update_scale() {
+        var sx = parseFloat(document.getElementById("scaleX").value);
+        var sy = parseFloat(document.getElementById("scaleY").value);
+        var sz = parseFloat(document.getElementById("scaleZ").value);
+
+        return vec3.create([sx, sy, sz]);
+    }
+
+    function getShearMatrix(shearValues) {
+        let shearMat = mat4.create();
+        mat4.identity(shearMat);
+
+        shearMat[1] = shearValues[2]; // shYX
+        shearMat[2] = shearValues[4]; // shZX
+        shearMat[4] = shearValues[0]; // shYX
+        shearMat[6] = shearValues[5]; // shZY
+        shearMat[8] = shearValues[1]; // shXZ
+        shearMat[9] = shearValues[3]; // shYZ
+
+        return shearMat;
+    }
+
+    function update_shear() {
+        var shXY = parseFloat(document.getElementById("shearXY").value);
+        var shXZ = parseFloat(document.getElementById("shearXZ").value);
+        var shYX = parseFloat(document.getElementById("shearYX").value);
+        var shYZ = parseFloat(document.getElementById("shearYZ").value);
+        var shZX = parseFloat(document.getElementById("shearZX").value);
+        var shZY = parseFloat(document.getElementById("shearZY").value);
+
+        return [shXY, shXZ, shYX, shYZ, shZX, shZY];
+    }
+
+    function update_clip_planes() {
+        /*clipMinX = parseFloat(document.getElementById("clipMinX").value);
+        clipMaxX = parseFloat(document.getElementById("clipMaxX").value);
+        clipMinY = parseFloat(document.getElementById("clipMinY").value);
+        clipMaxY = parseFloat(document.getElementById("clipMaxY").value);
+        clipMinZ = parseFloat(document.getElementById("clipMinZ").value);
+        clipMaxZ = parseFloat(document.getElementById("clipMaxZ").value);
+
+        return new Float32Array([
+            1, 0, 0, -clipMinX,  // X-min plane: x >= clipMinX
+            -1, 0, 0, clipMaxX,  // X-max plane: x <= clipMaxX
+            0, 1, 0, -clipMinY,  // Y-min plane: y >= clipMinY
+            0, -1, 0, clipMaxY,  // Y-max plane: y <= clipMaxY
+            0, 0, 1, -clipMinZ,  // Z-min plane: z >= clipMinZ
+            0, 0, -1, clipMaxZ   // Z-max plane: z <= clipMaxZ
+        ]);*/
+        return parseFloat(document.getElementById("clipX").value);
+    }
+
 </script>
 </head>
 
@@ -632,6 +728,29 @@
                 <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate()"></td>
             </tr>
         </table>
+        <span>Scale</span>
+        <table>
+            <tr>
+                <td>X: <input id="scaleX" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+                <td>Y: <input id="scaleY" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+                <td>Z: <input id="scaleZ" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+            </tr>
+        </table>
+        <span>Shear</span>
+        <table>
+            <tr>
+                <td>XY: <input id="shearXY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>XZ: <input id="shearXZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+            <tr>
+                <td>YX: <input id="shearYX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>YZ: <input id="shearYZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+            <tr>
+                <td>ZX: <input id="shearZX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>ZY: <input id="shearZY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+        </table>
         <p style="position: absolute; left: 1%; top: 1%; max-width: 30%; min-width: 30%; ">
             <span>Shading Model</span>
             <select id="shaderSelect" onchange="updateShaders()">
@@ -640,6 +759,12 @@
                 <option value="phong">Phong</option>
             </select>
         </p>
+        <span>3D Clipping</span>
+        <table>
+            <tr>
+                <td>Threshold: <input id="clipX" type="range" value="18" min="-18" max="18" step="0.5"></td>
+            </tr>
+        </table>
     </p>
 
 </body>

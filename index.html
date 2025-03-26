@@ -12,17 +12,251 @@
     modify fragment shader or write another one
     to implement flat, gouraud and phong shading
  -->
-<script id="fragmentShader" type="fragment">
+ <script id="flatfragmentShader" type="fragment">
     #extension GL_OES_standard_derivatives : enable
-    
-    precision mediump float;
+    precision highp float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+
+    uniform float Ka;
+    uniform float Kd;
+    uniform float Ks;
+    uniform float Shininess;
 
     varying vec4 fragcolor;
+    varying vec3 mvVertex;
+    varying float vClipDistance; // Receive clip distance from vertex shader
 
     void main(void) {
+        // Apply clipping: discard fragments behind the clipping plane
+        if (vClipDistance < 0.0) {
+            discard;
+        }
+
+        vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor2 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor3 = vec3(1.0, 1.0, 1.0);
+
+        /* Ambient */
+        vec3 ambient_color = Ka * vec3(fragcolor);
+
+        /* Diffuse */
+        vec3 dx = dFdx(mvVertex);
+        vec3 dy = dFdy(mvVertex);
+        vec3 normal = normalize(cross(dx, dy));
+        
+        vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
+        float diffuseCos1 = max(dot(normal, lightDirection1), 0.0);
+        vec3 diffuseColor1 = lightColor1 * Kd * vec3(fragcolor) * diffuseCos1;
+        
+        vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
+        float diffuseCos2 = max(dot(normal, lightDirection2), 0.0);
+        vec3 diffuseColor2 = lightColor2 * Kd * vec3(fragcolor) * diffuseCos2;
+        
+        vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
+        float diffuseCos3 = max(dot(normal, lightDirection3), 0.0);
+        vec3 diffuseColor3 = lightColor3 * Kd * vec3(fragcolor) * diffuseCos3;
+
+        /* Specular */
+        vec3 cameraDirection = normalize(-mvVertex);
+
+        vec3 reflectionDirection1 = reflect(-lightDirection1, normal);
+        float specular_cos_n1 = pow(max(dot(reflectionDirection1, cameraDirection), 0.0), Shininess);
+        vec3 specular_color1 = Ks * lightColor1 * specular_cos_n1;
+        
+        vec3 reflectionDirection2 = reflect(-lightDirection2, normal);
+        float specular_cos_n2 = pow(max(dot(reflectionDirection2, cameraDirection), 0.0), Shininess);
+        vec3 specular_color2 = Ks * lightColor2 * specular_cos_n2;
+        
+        vec3 reflectionDirection3 = reflect(-lightDirection3, normal);
+        float specular_cos_n3 = pow(max(dot(reflectionDirection3, cameraDirection), 0.0), Shininess);
+        vec3 specular_color3 = Ks * lightColor3 * specular_cos_n3;
+        
+        vec3 color = ambient_color + diffuseColor1 + diffuseColor2 + diffuseColor3 + specular_color1 + specular_color2 + specular_color3;
+        gl_FragColor = vec4(color, 1.0);
+    }
+</script>
+<script id="gouraudfragmentShader" type="fragment">
+    precision mediump float;
+    varying vec4 fragcolor;
+    varying float vClipDistance; // Receive clip distance from vertex shader
+
+    void main(void) {
+        if (vClipDistance < 0.0) {
+            discard; // Discard fragments behind the clipping plane
+        }
         gl_FragColor = fragcolor;
     }
 </script>
+<script id="phongfragmentShader" type="fragment">
+    precision mediump float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+
+    uniform float Ka;
+    uniform float Kd;
+    uniform float Ks;
+    uniform float Shininess;
+
+    varying vec4 fragcolor;
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying float vClipDistance; // Receive clip distance from vertex shader
+
+    void main(void) {
+        // Apply clipping: discard fragments behind the clipping plane
+        if (vClipDistance < 0.0) {
+            discard;
+        }
+
+        vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor2 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor3 = vec3(1.0, 1.0, 1.0);
+
+        /* Ambient */
+        vec3 ambientColor = Ka * vec3(fragcolor);
+        
+        /* Diffuse */
+        vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
+        float diffuseCos1 = max(dot(normal, lightDirection1), 0.0);
+        vec3 diffuseColor1 = lightColor1 * Kd * vec3(fragcolor) * diffuseCos1;
+        
+        vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
+        float diffuseCos2 = max(dot(normal, lightDirection2), 0.0);
+        vec3 diffuseColor2 = lightColor2 * Kd * vec3(fragcolor) * diffuseCos2;
+        
+        vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
+        float diffuseCos3 = max(dot(normal, lightDirection3), 0.0);
+        vec3 diffuseColor3 = lightColor3 * Kd * vec3(fragcolor) * diffuseCos3;
+        
+        /* Specular */
+        vec3 cameraDirection = normalize(-mvVertex);
+
+        vec3 reflectionDirection1 = reflect(-lightDirection1, normal);
+        float specularCosN1 = pow(max(dot(reflectionDirection1, cameraDirection), 0.0), Shininess);
+        vec3 specularColor1 = Ks * lightColor1 * specularCosN1;
+        
+        vec3 reflectionDirection2 = reflect(-lightDirection2, normal);
+        float specularCosN2 = pow(max(dot(reflectionDirection2, cameraDirection), 0.0), Shininess);
+        vec3 specularColor2 = Ks * lightColor2 * specularCosN2;
+        
+        vec3 reflectionDirection3 = reflect(-lightDirection3, normal);
+        float specularCosN3 = pow(max(dot(reflectionDirection3, cameraDirection), 0.0), Shininess);
+        vec3 specularColor3 = Ks * lightColor3 * specularCosN3;
+        
+        vec3 color = ambientColor + diffuseColor1 + diffuseColor2 + diffuseColor3 + specularColor1 + specularColor2 + specularColor3;
+
+        gl_FragColor = vec4(color, 1.0);
+    }
+</script>
+<script id="blinnfragmentShader" type="fragment">
+    precision mediump float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+
+    uniform float Ka;
+    uniform float Kd;
+    uniform float Ks;
+    uniform float Shininess;
+
+    varying vec3 mvVertex;
+    varying vec3 normal;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+
+        vec3 norm = normalize(normal);
+        vec3 viewDir = normalize(-mvVertex);
+
+        vec3 lightDir1 = normalize(lightPosition1 - mvVertex);
+        vec3 lightDir2 = normalize(lightPosition2 - mvVertex);
+        vec3 lightDir3 = normalize(lightPosition3 - mvVertex);
+
+        vec3 half1 = normalize(lightDir1 + viewDir);
+        vec3 half2 = normalize(lightDir2 + viewDir);
+        vec3 half3 = normalize(lightDir3 + viewDir);
+
+        vec3 ambient = Ka * vec3(fragcolor);
+
+        float diff1 = max(dot(norm, lightDir1), 0.0);
+        float diff2 = max(dot(norm, lightDir2), 0.0);
+        float diff3 = max(dot(norm, lightDir3), 0.0);
+        vec3 diffuse = Kd * vec3(fragcolor) * (diff1 + diff2 + diff3);
+
+        float spec1 = pow(max(dot(norm, half1), 0.0), Shininess);
+        float spec2 = pow(max(dot(norm, half2), 0.0), Shininess);
+        float spec3 = pow(max(dot(norm, half3), 0.0), Shininess);
+        vec3 specular = Ks * vec3(1.0) * (spec1 + spec2 + spec3);
+
+        vec3 finalColor = ambient + diffuse + specular;
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+</script>
+<script id="toonfragmentShader" type="fragment">
+    precision mediump float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+    uniform float Ka;
+    uniform float Kd;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+
+        vec3 lightDir1 = normalize(lightPosition1 - mvVertex);
+        vec3 lightDir2 = normalize(lightPosition2 - mvVertex);
+        vec3 lightDir3 = normalize(lightPosition3 - mvVertex);
+        vec3 norm = normalize(normal);
+
+        float diff1 = max(dot(norm, lightDir1), 0.0);
+        float diff2 = max(dot(norm, lightDir2), 0.0);
+        float diff3 = max(dot(norm, lightDir3), 0.0);
+
+        float totalDiffuse = (diff1 + diff2 + diff3) / 3.0;
+        //float totalDiffuse = max(dot(norm, lightDir), 0.0);
+
+        vec3 baseColor = Ka * vec3(fragcolor);
+
+        if (totalDiffuse > 0.9)
+            baseColor *= 1.0;
+        else if (totalDiffuse > 0.75)
+            baseColor *= 0.85;
+        else if (totalDiffuse > 0.6)
+            baseColor *= 0.7;
+        else if (totalDiffuse > 0.45)
+            baseColor *= 0.55;
+        else if (totalDiffuse > 0.3)
+            baseColor *= 0.4;
+        else
+            baseColor *= 0.25;
+
+        gl_FragColor = vec4(baseColor * Kd, 1.0);
+    }
+</script>
+<script id="outlinefragmentShader" type="fragment">
+    precision mediump float;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // solid black
+    }
+</script>
+
 
 <!-- 
     TODO HERE:
@@ -34,54 +268,186 @@
     only Teapot.json has extra attribute "vertexTextureCoords"
     which is used for texture mappping.
  -->
-<script id="vertexShader" type="vertex">
+ <script id="flatvertexShader" type="vertex">
+    #extension GL_OES_standard_derivatives : enable
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
     attribute vec3 aVertexNormal;
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
-    
-    // Ambient light coef.
-    uniform float Ka;
-    // light1 location (x,y,z)
-    uniform vec3 lightLoc;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
 
-	varying vec4 fragcolor;
+    varying vec4 fragcolor;
+    varying vec3 mvVertex;
+    varying float vClipDistance; // Pass clip distance to fragment shader
 
     void main(void) {
-        vec3 lightColor = vec3(1.0, 1.0, 1.0);
-
-        // Transform VertexPosition and VertexNormal to world coordinate system
-        vec3 mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
-        mat3 normalMVMatrix = mat3(uMVMatrix);
-        vec3 mvNormal = normalMVMatrix * aVertexNormal;
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
         
-        // V, N, L, H
-        vec3 V = -normalize(mvVertex);
-        vec3 N = normalize(mvNormal);
-        vec3 L = normalize(lightLoc - mvVertex);
-        vec3 H = normalize(L + V);
+        // Compute signed distance to clipping plane
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
 
-        // Ambient, diffuse and specular coef.
-        float ka = Ka;
-        float kd = 0.6;
-        float ks = 0.3;
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        fragcolor = vec4(aFrontColor.rgb, 1.0);
 
-        vec3 gouraud = vec3(0.5, 0.5, 0.5);
+        // Prevent aVertexNormal from being removed by optimization
+        if (dot(aVertexNormal, aVertexNormal) < 0.0) {
+            fragcolor = vec4(aFrontColor.rgb, 1.0);
+        }
+    }
+</script>
+<script id="gouraudvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+
+    uniform float Ka;
+    uniform float Kd;
+    uniform float Ks;
+    uniform float Shininess;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
+
+    varying vec4 fragcolor;
+    varying float vClipDistance; // Pass clip distance to fragment shader
+
+    void main(void) {
+        vec3 lightColor1 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor2 = vec3(1.0, 1.0, 1.0);
+        vec3 lightColor3 = vec3(1.0, 1.0, 1.0);
+        vec3 mvVertex =  (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        mat3 normalMatrix = mat3(uMVMatrix);
+        vec3 mvNormal =  (normalMatrix * aVertexNormal);
+
+        // Compute clipping distance
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        // Gouraud shading calculations
+        vec3 gouraud = vec3(0.0);
+        vec3 cameraDirection = -normalize(mvVertex);
+        vec3 normal = normalize(mvNormal);
+
+        vec3 lightDirection1 = normalize(vec3(lightPosition1) - mvVertex);
+        vec3 H1 = normalize(lightDirection1 + cameraDirection);
+        vec3 lightDirection2 = normalize(vec3(lightPosition2) - mvVertex);
+        vec3 H2 = normalize(lightDirection2 + cameraDirection);
+        vec3 lightDirection3 = normalize(vec3(lightPosition3) - mvVertex);
+        vec3 H3 = normalize(lightDirection3 + cameraDirection);
+
+        // Ambient component
+        vec3 ambient = aFrontColor * Ka;
         
-        // *TODO* 
-        //  Finish the formula of ambient, diffuse and specular
-        // vec3 ambient = 
-        // vec3 diffuse = 
-        // vec3 specular = 
-              
-        // gouraud = ambient + diffuse + specular;
-        
-        fragcolor = vec4(gouraud, 1.0);
+        // Diffuse component
+        vec3 diffuse1 = lightColor1 * aFrontColor * max(dot(lightDirection1, normal), 0.0) * Kd;
+        vec3 diffuse2 = lightColor2 * aFrontColor * max(dot(lightDirection2, normal), 0.0) * Kd;
+        vec3 diffuse3 = lightColor3 * aFrontColor * max(dot(lightDirection3, normal), 0.0) * Kd;
+
+        // Specular component
+        vec3 specular1 = lightColor1 * pow(max(dot(H1, normal), 0.0), Shininess) * Ks;
+        vec3 specular2 = lightColor2 * pow(max(dot(H2, normal), 0.0), Shininess) * Ks;
+        vec3 specular3 = lightColor3 * pow(max(dot(H3, normal), 0.0), Shininess) * Ks;
+
+        vec3 color = ambient + diffuse1 + diffuse2 + diffuse3 + specular1 + specular2 + specular3;
+
+        fragcolor = vec4(color, 1.0);
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
+<script id="phongvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;  // Clipping plane in world space
+
+    varying vec3 normal;
+    varying vec4 fragcolor;
+    varying vec3 mvVertex;
+    varying float vClipDistance; // Pass clip distance to fragment shader
+
+    void main(void) {
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normal = normalize(mat3(uMVMatrix) * aVertexNormal);
+        fragcolor = vec4(aFrontColor, 1.0);
+
+        // Compute signed distance to clipping plane
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+<script id="blinnvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normal = normalize(mat3(uMVMatrix) * aVertexNormal);
+        fragcolor = vec4(aFrontColor, 1.0);
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+        gl_Position = uPMatrix * vec4(mvVertex, 1.0);
+    }
+</script>
+<script id="toonvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normal = normalize(mat3(uMVMatrix) * aVertexNormal);
+        fragcolor = vec4(aFrontColor, 1.0);
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+<script id="outlinevertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying float vClipDistance;
+
+    void main(void) {
+        vec3 scaledPos = aVertexPosition + 0.1 * aVertexNormal; // expand along normal
+        vec4 mvPos = uMVMatrix * vec4(scaledPos, 1.0);
+        vClipDistance = dot(mvPos, vec4(0.5, 1.0, 0.0, 0.0)); // reuse clipping plane logic
+
+        gl_Position = uPMatrix * mvPos;
+    }
+</script>
+
 
 <script type="text/javascript">
     // common variables
@@ -91,15 +457,20 @@
     var mvMatrix = mat4.create();
     var pMatrix  = mat4.create();
 
-    var teapotVertexPositionBuffer;
-    var teapotVertexNormalBuffer;
-    var teapotVertexFrontColorBuffer;
+    var models = {};
+    var model_name = 'Teapot';
+    var shaderType = "flat";
 
     var teapotAngle = 180;
     var lastTime    = 0;
 
     var ka = 0.1;
-    var light_locations = new Float32Array([30., 20., -25.]);
+    var kd = 0.1;
+    var ks = 0.1;
+    var Shininess = 0.1;
+    var light_locations1 = new Float32Array([30., 20., -25.]);
+    var light_locations2 = new Float32Array([30., 20., -25.]);
+    var light_locations3 = new Float32Array([30., 20., -25.]);
 
 
     //*************************************************
@@ -113,6 +484,7 @@
             gl.viewportHeight = canvas.height;
         } 
         catch (e) {
+            console.log(e);
         }
 
         if (!gl) {
@@ -158,9 +530,9 @@
         return shader;
     }
 
-    function initShaders() {
-        var fragmentShader = getShader(gl, "fragmentShader");
-        var vertexShader   = getShader(gl, "vertexShader");
+    function initShaders(shaderType) {
+        var fragmentShader = getShader(gl, shaderType + "fragmentShader");
+        var vertexShader = getShader(gl, shaderType + "vertexShader");
 
         shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
@@ -181,7 +553,12 @@
         gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
 
         gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ka"), ka);
-        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightLoc"), light_locations);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Kd"), kd);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ks"), ks);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition1"), light_locations1);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition2"), light_locations2);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition3"), light_locations3);
+        shaderProgram.Shininess  = gl.getUniformLocation(shaderProgram, "Shininess");
 
         shaderProgram.pMatrixUniform  = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
@@ -196,32 +573,39 @@
         return degrees * Math.PI / 180;
     }
 
-    function handleLoadedTeapot(teapotData) {
-        teapotVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexPositions), gl.STATIC_DRAW);
-        teapotVertexPositionBuffer.itemSize = 3;
-        teapotVertexPositionBuffer.numItems = teapotData.vertexPositions.length / 3;
+    function handleLoadedModel(modelData, name) {
+        let modelVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexPositions), gl.STATIC_DRAW);
+        modelVertexPositionBuffer.itemSize = 3;
+        modelVertexPositionBuffer.numItems = modelData.vertexPositions.length / 3;
 
-        teapotVertexNormalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexNormals), gl.STATIC_DRAW);
-        teapotVertexNormalBuffer.itemSize = 3;
-        teapotVertexNormalBuffer.numItems = teapotData.vertexNormals.length / 3;
+        let modelVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexNormals), gl.STATIC_DRAW);
+        modelVertexNormalBuffer.itemSize = 3;
+        modelVertexNormalBuffer.numItems = modelData.vertexNormals.length / 3;
 
-        teapotVertexFrontColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexFrontcolors), gl.STATIC_DRAW);
-        teapotVertexFrontColorBuffer.itemSize = 3;
-        teapotVertexFrontColorBuffer.numItems = teapotData.vertexFrontcolors.length / 3;
+        let modelVertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexFrontcolors), gl.STATIC_DRAW);
+        modelVertexFrontColorBuffer.itemSize = 3;
+        modelVertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
+
+        models[name] = {
+            modelVertexPositionBuffer: modelVertexPositionBuffer,
+            modelVertexNormalBuffer: modelVertexNormalBuffer,
+            modelVertexFrontColorBuffer: modelVertexFrontColorBuffer
+        }
     }
 
-    function loadTeapot() {
+    function loadModel(model) {
+        if(model == 'Hide') return;
         var request = new XMLHttpRequest();
-        request.open("GET", "./model/Teapot.json");
+        request.open("GET", "./model/" + model + ".json");
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
-                handleLoadedTeapot(JSON.parse(request.responseText));
+                handleLoadedModel(JSON.parse(request.responseText), model);
             }
         }
         request.send();
@@ -241,15 +625,18 @@
         gl.clearColor(ka, ka, ka, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        if (teapotVertexPositionBuffer   == null || 
-            teapotVertexNormalBuffer     == null || 
-            teapotVertexFrontColorBuffer == null) {
-            
-            return;
-        }
-
         // Setup Projection Matrix
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+        // load specific model
+        console.log(model_name);
+        if(!models.hasOwnProperty(model_name)){
+            return;
+        }
+        
+        let modelVertexPositionBuffer = models[model_name].modelVertexPositionBuffer;
+        let modelVertexNormalBuffer = models[model_name].modelVertexNormalBuffer;
+        let modelVertexFrontColorBuffer = models[model_name].modelVertexFrontColorBuffer;
 
         // Setup Model-View Matrix
         mat4.identity(mvMatrix);
@@ -266,30 +653,46 @@
         mat4.rotate(mvMatrix, degToRad(rotateVec[1] + teapotAngle), [0, 1, 0]);
         mat4.rotate(mvMatrix, degToRad(rotateVec[2]), [0, 0, 1]);
 
+        // Apply Scaling
+        var scaleVec = update_scale();
+        mat4.scale(mvMatrix, scaleVec);
+
+        // Apply Shear
+        var shearMat = getShearMatrix(update_shear());
+        mat4.multiply(mvMatrix, shearMat, mvMatrix);
+
+
+        if(shaderType !== "outline"){
+            initShaders(shaderType);
+        }
+        else{
+            initShaders("toon");
+        }
+
         setMatrixUniforms();
 
         // Setup teapot position data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
-                               teapotVertexPositionBuffer.itemSize, 
+        modelVertexPositionBuffer.itemSize, 
                                gl.FLOAT, 
                                false, 
                                0, 
                                0);
 
         // Setup teapot front color data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexFrontColorBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, 
-                               teapotVertexFrontColorBuffer.itemSize, 
+                               modelVertexFrontColorBuffer.itemSize, 
                                gl.FLOAT, 
                                false, 
                                0, 
                                0);
         
         // Setup teapot normal data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, 
-                               teapotVertexNormalBuffer.itemSize, 
+        modelVertexNormalBuffer.itemSize, 
                                gl.FLOAT, 
                                false, 
                                0, 
@@ -297,10 +700,41 @@
 
         // Setup ambient light and light position
         gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ka"), ka);
-        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightLoc"), light_locations);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Kd"), kd);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ks"), ks);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition1"), light_locations1);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition2"), light_locations2);
+        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition3"), light_locations3);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Shininess"), Shininess);
 
-        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+        // Pass 3D Clipping Planes
+        const clippingPlane = [0.5, 1.0, 0.0, update_clip_planes()];
+        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "uClippingPlane"), new Float32Array(clippingPlane));
+
+
+        gl.drawArrays(gl.TRIANGLES, 0, modelVertexPositionBuffer.numItems);
+        if(shaderType == "outline"){
+            gl.enable(gl.CULL_FACE);
+            gl.cullFace(gl.FRONT); // only draw back-facing faces
+
+            initShaders("outline");
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+            // Only need MVP matrices
+            setMatrixUniforms();
+
+            gl.drawArrays(gl.TRIANGLES, 0, modelVertexPositionBuffer.numItems);
+
+            gl.disable(gl.CULL_FACE);
+        }
     }
+
+    
 
     function animate() {
         var timeNow = new Date().getTime();
@@ -321,8 +755,8 @@
     function webGLStart() {
         var canvas = document.getElementById("ICG-canvas");
         initGL(canvas);
-        initShaders();
-        loadTeapot();
+        initShaders("gouraud");
+        loadModel(model_name);
 
         gl.clearColor(ka, ka, ka, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -334,14 +768,33 @@
     //*************************************************
     // Parsing parameters
     //*************************************************
+    function updateModel() {
+        model_name = document.getElementById("item1-model").value;
+        loadModel(model_name);
+    }
+    function updateShaders() {
+        shaderType = document.getElementById("shaderSelect").value;
+    }
+
     function update_ambient_light(){
         ka = document.getElementById("am_ka").value;
+        kd = document.getElementById("am_kd").value;
+        ks = document.getElementById("am_ks").value;
+        Shininess = document.getElementById("am_shininess").value;
     }
 
     function update_light_location(){
-        light_locations[0] = document.getElementById("llocX").value;
-        light_locations[1] = document.getElementById("llocY").value;
-        light_locations[2] = document.getElementById("llocZ").value;
+        light_locations1[0] = document.getElementById("lloc1X").value;
+        light_locations1[1] = document.getElementById("lloc1Y").value;
+        light_locations1[2] = document.getElementById("lloc1Z").value;
+
+        light_locations2[0] = document.getElementById("lloc2X").value;
+        light_locations2[1] = document.getElementById("lloc2Y").value;
+        light_locations2[2] = document.getElementById("lloc2Z").value;
+
+        light_locations3[0] = document.getElementById("lloc3X").value;
+        light_locations3[1] = document.getElementById("lloc3Y").value;
+        light_locations3[2] = document.getElementById("lloc3Z").value;
     }
     
     function update_trans(){
@@ -360,6 +813,58 @@
         return vec3.create([rx, ry, rz]);
     }
 
+    function update_scale() {
+        var sx = parseFloat(document.getElementById("scaleX").value);
+        var sy = parseFloat(document.getElementById("scaleY").value);
+        var sz = parseFloat(document.getElementById("scaleZ").value);
+
+        return vec3.create([sx, sy, sz]);
+    }
+
+    function getShearMatrix(shearValues) {
+        let shearMat = mat4.create();
+        mat4.identity(shearMat);
+
+        shearMat[1] = shearValues[2]; // shYX
+        shearMat[2] = shearValues[4]; // shZX
+        shearMat[4] = shearValues[0]; // shYX
+        shearMat[6] = shearValues[5]; // shZY
+        shearMat[8] = shearValues[1]; // shXZ
+        shearMat[9] = shearValues[3]; // shYZ
+
+        return shearMat;
+    }
+
+    function update_shear() {
+        var shXY = parseFloat(document.getElementById("shearXY").value);
+        var shXZ = parseFloat(document.getElementById("shearXZ").value);
+        var shYX = parseFloat(document.getElementById("shearYX").value);
+        var shYZ = parseFloat(document.getElementById("shearYZ").value);
+        var shZX = parseFloat(document.getElementById("shearZX").value);
+        var shZY = parseFloat(document.getElementById("shearZY").value);
+
+        return [shXY, shXZ, shYX, shYZ, shZX, shZY];
+    }
+
+    function update_clip_planes() {
+        /*clipMinX = parseFloat(document.getElementById("clipMinX").value);
+        clipMaxX = parseFloat(document.getElementById("clipMaxX").value);
+        clipMinY = parseFloat(document.getElementById("clipMinY").value);
+        clipMaxY = parseFloat(document.getElementById("clipMaxY").value);
+        clipMinZ = parseFloat(document.getElementById("clipMinZ").value);
+        clipMaxZ = parseFloat(document.getElementById("clipMaxZ").value);
+
+        return new Float32Array([
+            1, 0, 0, -clipMinX,  // X-min plane: x >= clipMinX
+            -1, 0, 0, clipMaxX,  // X-max plane: x <= clipMaxX
+            0, 1, 0, -clipMinY,  // Y-min plane: y >= clipMinY
+            0, -1, 0, clipMaxY,  // Y-max plane: y <= clipMaxY
+            0, 0, 1, -clipMinZ,  // Z-min plane: z >= clipMinZ
+            0, 0, -1, clipMaxZ   // Z-max plane: z <= clipMaxZ
+        ]);*/
+        return parseFloat(document.getElementById("clipX").value);
+    }
+
 </script>
 </head>
 
@@ -373,21 +878,39 @@
         <p>
             <label for="shading">Gouraud shading</label>
         </p>
-
         </br>
-        <span>Ambient Light</span>
+        <span>Light</span>
         <table>
             <tr>
                 <td>Ka: <input style="max-width: 70%; vertical-align: middle;" id="am_ka" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Kd: <input style="max-width: 70%; vertical-align: middle;" id="am_kd" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Ks: <input style="max-width: 70%; vertical-align: middle;" id="am_ks" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Shininess: <input style="max-width: 70%; vertical-align: middle;" id="am_shininess" type="range" autocomplete="off" value="0.1" max="100." min="1." step="1" oninput="update_ambient_light()"></td>
             </tr>
         </table>
         </br>
-        <span>Light 0</span>
+        <span>Light 1</span>
         <table>
             <tr>
-                <td>X: <input style="max-width: 70%; vertical-align: middle;" id="llocX" type="range" autocomplete="off" value="30." max="40." min="-40." oninput="update_light_location()"></td>
-                <td>Y: <input style="max-width: 70%; vertical-align: middle;" id="llocY" type="range" autocomplete="off" value="20." max="40." min="-40." oninput="update_light_location()"></td>
-                <td>Z: <input style="max-width: 70%; vertical-align: middle;" id="llocZ" type="range" autocomplete="off" value="-25." max="0." min="-75." oninput="update_light_location()"></td>
+                <td>X: <input style="max-width: 70%; vertical-align: middle;" id="lloc1X" type="range" autocomplete="off" value="30." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Y: <input style="max-width: 70%; vertical-align: middle;" id="lloc1Y" type="range" autocomplete="off" value="20." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Z: <input style="max-width: 70%; vertical-align: middle;" id="lloc1Z" type="range" autocomplete="off" value="-25." max="0." min="-75." oninput="update_light_location()"></td>
+            </tr>
+        </table>
+        <span>Light 2</span>
+        <table>
+            <tr>
+                <td>X: <input style="max-width: 70%; vertical-align: middle;" id="lloc2X" type="range" autocomplete="off" value="30." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Y: <input style="max-width: 70%; vertical-align: middle;" id="lloc2Y" type="range" autocomplete="off" value="20." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Z: <input style="max-width: 70%; vertical-align: middle;" id="lloc2Z" type="range" autocomplete="off" value="-25." max="0." min="-75." oninput="update_light_location()"></td>
+            </tr>
+        </table>
+        <span>Light 3</span>
+        <table>
+            <tr>
+                <td>X: <input style="max-width: 70%; vertical-align: middle;" id="lloc3X" type="range" autocomplete="off" value="30." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Y: <input style="max-width: 70%; vertical-align: middle;" id="lloc3Y" type="range" autocomplete="off" value="20." max="40." min="-40." oninput="update_light_location()"></td>
+                <td>Z: <input style="max-width: 70%; vertical-align: middle;" id="lloc3Z" type="range" autocomplete="off" value="-25." max="0." min="-75." oninput="update_light_location()"></td>
             </tr>
         </table>
         </br>
@@ -415,6 +938,62 @@
                 <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate()"></td>
             </tr>
         </table>
+        <span>Scale</span>
+        <table>
+            <tr>
+                <td>X: <input id="scaleX" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+                <td>Y: <input id="scaleY" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+                <td>Z: <input id="scaleZ" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
+            </tr>
+        </table>
+        <span>Shear</span>
+        <table>
+            <tr>
+                <td>XY: <input id="shearXY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>XZ: <input id="shearXZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+            <tr>
+                <td>YX: <input id="shearYX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>YZ: <input id="shearYZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+            <tr>
+                <td>ZX: <input id="shearZX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+                <td>ZY: <input id="shearZY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
+            </tr>
+        </table>
+        <p style="position: absolute; left: 1%; top: 1%; max-width: 30%; min-width: 30%; ">
+            <span>Shading Method</span>
+            <select id="shaderSelect" onchange="updateShaders()">
+                <option value="flat">Flat</option>
+                <option value="gouraud">Gouraud</option>
+                <option value="phong">Phong</option>
+                <option value="blinn">Blinn-Phong</option>
+                <option value="toon">Toon</option>
+                <option value="outline">Toon+Outline</option>
+            </select>
+        </p>
+        <span>3D Clipping</span>
+        <table>
+            <tr>
+                <td>Threshold: <input id="clipX" type="range" value="18" min="-18" max="18" step="0.5"></td>
+            </tr>
+        </table>
+        <select class="form-control" id="item1-model" onchange="updateModel()">
+            <option>Teapot</option>
+            <option>Csie</option>
+            <option>Car_road</option>
+            <option>Fighter</option>    
+            <option>Longteap</option>
+            <option>Mig27</option>
+            <option>Plant</option>
+            <option>Tomcat</option>
+            <option>Church_s</option>
+            <option>Easter</option>
+            <option>Kangaroo</option>
+            <option>Mercedes</option>
+            <option>Patchair</option>
+            <option>Hide</option>
+        </select>
     </p>
 
 </body>

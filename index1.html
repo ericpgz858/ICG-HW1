@@ -78,7 +78,6 @@
         gl_FragColor = vec4(color, 1.0);
     }
 </script>
-
 <script id="gouraudfragmentShader" type="fragment">
     precision mediump float;
     varying vec4 fragcolor;
@@ -91,7 +90,6 @@
         gl_FragColor = fragcolor;
     }
 </script>
-
 <script id="phongfragmentShader" type="fragment">
     precision mediump float;
 
@@ -155,6 +153,109 @@
         gl_FragColor = vec4(color, 1.0);
     }
 </script>
+<script id="blinnfragmentShader" type="fragment">
+    precision mediump float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+
+    uniform float Ka;
+    uniform float Kd;
+    uniform float Ks;
+    uniform float Shininess;
+
+    varying vec3 mvVertex;
+    varying vec3 normal;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+
+        vec3 norm = normalize(normal);
+        vec3 viewDir = normalize(-mvVertex);
+
+        vec3 lightDir1 = normalize(lightPosition1 - mvVertex);
+        vec3 lightDir2 = normalize(lightPosition2 - mvVertex);
+        vec3 lightDir3 = normalize(lightPosition3 - mvVertex);
+
+        vec3 half1 = normalize(lightDir1 + viewDir);
+        vec3 half2 = normalize(lightDir2 + viewDir);
+        vec3 half3 = normalize(lightDir3 + viewDir);
+
+        vec3 ambient = Ka * vec3(fragcolor);
+
+        float diff1 = max(dot(norm, lightDir1), 0.0);
+        float diff2 = max(dot(norm, lightDir2), 0.0);
+        float diff3 = max(dot(norm, lightDir3), 0.0);
+        vec3 diffuse = Kd * vec3(fragcolor) * (diff1 + diff2 + diff3);
+
+        float spec1 = pow(max(dot(norm, half1), 0.0), Shininess);
+        float spec2 = pow(max(dot(norm, half2), 0.0), Shininess);
+        float spec3 = pow(max(dot(norm, half3), 0.0), Shininess);
+        vec3 specular = Ks * vec3(1.0) * (spec1 + spec2 + spec3);
+
+        vec3 finalColor = ambient + diffuse + specular;
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+</script>
+<script id="toonfragmentShader" type="fragment">
+    precision mediump float;
+
+    uniform vec3 lightPosition1;
+    uniform vec3 lightPosition2;
+    uniform vec3 lightPosition3;
+    uniform float Ka;
+    uniform float Kd;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+
+        vec3 lightDir1 = normalize(lightPosition1 - mvVertex);
+        vec3 lightDir2 = normalize(lightPosition2 - mvVertex);
+        vec3 lightDir3 = normalize(lightPosition3 - mvVertex);
+        vec3 norm = normalize(normal);
+
+        float diff1 = max(dot(norm, lightDir1), 0.0);
+        float diff2 = max(dot(norm, lightDir2), 0.0);
+        float diff3 = max(dot(norm, lightDir3), 0.0);
+
+        float totalDiffuse = (diff1 + diff2 + diff3) / 3.0;
+        //float totalDiffuse = max(dot(norm, lightDir), 0.0);
+
+        vec3 baseColor = Ka * vec3(fragcolor);
+
+        if (totalDiffuse > 0.9)
+            baseColor *= 1.0;
+        else if (totalDiffuse > 0.75)
+            baseColor *= 0.85;
+        else if (totalDiffuse > 0.6)
+            baseColor *= 0.7;
+        else if (totalDiffuse > 0.45)
+            baseColor *= 0.55;
+        else if (totalDiffuse > 0.3)
+            baseColor *= 0.4;
+        else
+            baseColor *= 0.25;
+
+        gl_FragColor = vec4(baseColor * Kd, 1.0);
+    }
+</script>
+<script id="outlinefragmentShader" type="fragment">
+    precision mediump float;
+    varying float vClipDistance;
+
+    void main(void) {
+        if (vClipDistance < 0.0) discard;
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // solid black
+    }
+</script>
 
 <!-- 
     TODO HERE:
@@ -195,7 +296,6 @@
         }
     }
 </script>
-
 <script id="gouraudvertexShader" type="vertex">
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
@@ -259,7 +359,6 @@
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
-
 <script id="phongvertexShader" type="vertex">
     attribute vec3 aVertexPosition;
     attribute vec3 aFrontColor;
@@ -285,19 +384,88 @@
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
+<script id="blinnvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
 
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normal = normalize(mat3(uMVMatrix) * aVertexNormal);
+        fragcolor = vec4(aFrontColor, 1.0);
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+        gl_Position = uPMatrix * vec4(mvVertex, 1.0);
+    }
+</script>
+<script id="toonvertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec4 uClippingPlane;
+
+    varying vec3 normal;
+    varying vec3 mvVertex;
+    varying vec4 fragcolor;
+    varying float vClipDistance;
+
+    void main(void) {
+        mvVertex = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normal = normalize(mat3(uMVMatrix) * aVertexNormal);
+        fragcolor = vec4(aFrontColor, 1.0);
+        vClipDistance = dot(vec4(mvVertex, 1.0), uClippingPlane);
+
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+<script id="outlinevertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying float vClipDistance;
+
+    void main(void) {
+        vec3 scaledPos = aVertexPosition + 0.1 * aVertexNormal; // expand along normal
+        vec4 mvPos = uMVMatrix * vec4(scaledPos, 1.0);
+        vClipDistance = dot(mvPos, vec4(0.5, 1.0, 0.0, 0.0)); // reuse clipping plane logic
+
+        gl_Position = uPMatrix * mvPos;
+    }
+</script>
 
 <script type="text/javascript">
     // common variables
     var gl;
-    var shaderProgram;
+    var flatShaderProgram;
+    var gouraudShaderProgram;
+    var phongShaderProgram;
+    var blinnShaderProgram;
+    var toonShaderProgram;
+    var outlineShaderProgram;
 
     var mvMatrix = mat4.create();
     var pMatrix  = mat4.create();
 
-    var teapotVertexPositionBuffer;
-    var teapotVertexNormalBuffer;
-    var teapotVertexFrontColorBuffer;
+    var models = {};
+    var objectConfig = [
+        { shader: 'flat', shear: [0, 0, 0, 0, 0, 0], scale: [1, 1, 1], rotate:{axis: [0, 0, 0], degree: 180, lastTime: new Date().getTime(), lastAngle: 0, autorotate: true, direction: [0, 1, 0] }, constant: { Ka: 0.1, Kd: 0.1, Ks: 0.1, Shininess: 5 }, location: [-35, 0 ,-80], model: "Teapot" },
+        { shader: 'gouraud', shear: [0, 0, 0, 0, 0, 0], scale: [1, 1, 1], rotate:{axis: [0, 0, 0],  degree: 180, lastTime: new Date().getTime(), lastAngle: 0, autorotate: true, direction: [0, 1, 0] }, constant: { Ka: 0.1, Kd: 0.1, Ks: 0.1, Shininess: 5 }, location: [0, 0 ,-80], model: "Teapot" },
+        { shader: 'phong', shear: [0, 0, 0, 0, 0, 0], scale: [1, 1, 1], rotate:{axis: [0, 0, 0],  degree: 180, lastTime: new Date().getTime(), lastAngle: 0, autorotate: true, direction: [0, 1, 0] }, constant: { Ka: 0.1, Kd: 0.1, Ks: 0.1, Shininess: 5 }, location: [35, 0 ,-80], model: "Teapot" }
+    ]
 
     var teapotAngle = 180;
     var lastTime    = 0;
@@ -305,6 +473,7 @@
     var ka = 0.1;
     var kd = 0.1;
     var ks = 0.1;
+    var Shininess = 0.1;
     var light_locations1 = new Float32Array([30., 20., -25.]);
     var light_locations2 = new Float32Array([30., 20., -25.]);
     var light_locations3 = new Float32Array([30., 20., -25.]);
@@ -371,7 +540,7 @@
         var fragmentShader = getShader(gl, shaderType + "fragmentShader");
         var vertexShader = getShader(gl, shaderType + "vertexShader");
 
-        shaderProgram = gl.createProgram();
+        let shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
         gl.attachShader(shaderProgram, fragmentShader);
         gl.linkProgram(shaderProgram);
@@ -399,9 +568,11 @@
 
         shaderProgram.pMatrixUniform  = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+
+        return shaderProgram;
     }
 
-    function setMatrixUniforms() {
+    function setMatrixUniforms(shaderProgram) {
         gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
     }
@@ -410,32 +581,39 @@
         return degrees * Math.PI / 180;
     }
 
-    function handleLoadedTeapot(teapotData) {
-        teapotVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexPositions), gl.STATIC_DRAW);
-        teapotVertexPositionBuffer.itemSize = 3;
-        teapotVertexPositionBuffer.numItems = teapotData.vertexPositions.length / 3;
+    function handleLoadedModel(modelData, name) {
+        let modelVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexPositions), gl.STATIC_DRAW);
+        modelVertexPositionBuffer.itemSize = 3;
+        modelVertexPositionBuffer.numItems = modelData.vertexPositions.length / 3;
 
-        teapotVertexNormalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexNormals), gl.STATIC_DRAW);
-        teapotVertexNormalBuffer.itemSize = 3;
-        teapotVertexNormalBuffer.numItems = teapotData.vertexNormals.length / 3;
+        let modelVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexNormals), gl.STATIC_DRAW);
+        modelVertexNormalBuffer.itemSize = 3;
+        modelVertexNormalBuffer.numItems = modelData.vertexNormals.length / 3;
 
-        teapotVertexFrontColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexFrontcolors), gl.STATIC_DRAW);
-        teapotVertexFrontColorBuffer.itemSize = 3;
-        teapotVertexFrontColorBuffer.numItems = teapotData.vertexFrontcolors.length / 3;
+        let modelVertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexFrontcolors), gl.STATIC_DRAW);
+        modelVertexFrontColorBuffer.itemSize = 3;
+        modelVertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
+
+        models[name] = {
+            modelVertexPositionBuffer: modelVertexPositionBuffer,
+            modelVertexNormalBuffer: modelVertexNormalBuffer,
+            modelVertexFrontColorBuffer: modelVertexFrontColorBuffer
+        }
     }
 
-    function loadTeapot() {
+    function loadModel(model) {
+        if(model == 'Hide') return;
         var request = new XMLHttpRequest();
-        request.open("GET", "./model/Teapot.json");
+        request.open("GET", "./model/" + model + ".json");
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
-                handleLoadedTeapot(JSON.parse(request.responseText));
+                handleLoadedModel(JSON.parse(request.responseText), model);
             }
         }
         request.send();
@@ -452,91 +630,143 @@
     */
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        gl.clearColor(ka, ka, ka, 1.0);
+        //gl.clearColor(ka, ka, ka, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        if (teapotVertexPositionBuffer   == null || 
-            teapotVertexNormalBuffer     == null || 
-            teapotVertexFrontColorBuffer == null) {
-            
-            return;
-        }
 
         // Setup Projection Matrix
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 
-        // Setup Model-View Matrix
-        mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0,0,0]);
-        mat4.translate(mvMatrix, update_trans());
-        
-        var rotateVec_init = [0,0,0];
-        mat4.rotate(mvMatrix, degToRad(rotateVec_init[0]), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(rotateVec_init[1]), [0, 1, 0]);
-        mat4.rotate(mvMatrix, degToRad(rotateVec_init[2]), [0, 0, 1]);
-        
-        var rotateVec = update_rotate();
-        mat4.rotate(mvMatrix, degToRad(rotateVec[0]), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(rotateVec[1] + teapotAngle), [0, 1, 0]);
-        mat4.rotate(mvMatrix, degToRad(rotateVec[2]), [0, 0, 1]);
 
-        // Apply Scaling
-        var scaleVec = update_scale();
-        mat4.scale(mvMatrix, scaleVec);
+        for(let i = 0; i < 3; i++){
+            let shaderProgram = getShaderByName(objectConfig[i]['shader']);
+            if(objectConfig[i]['shader'] == "outline"){
+                shaderProgram = getShaderByName("toon");
+            }
 
-        // Apply Shear
-        var shearMat = getShearMatrix(update_shear());
-        mat4.multiply(mvMatrix, shearMat, mvMatrix);
+            let model_name = objectConfig[i]['model'];
+            // load specific model
+            //console.log(i, model_name, objectConfig[i]['shader']);
+            if(!models.hasOwnProperty(model_name)){
+                return;
+            }
+            
 
-        setMatrixUniforms();
+            let modelVertexPositionBuffer = models[model_name].modelVertexPositionBuffer;
+            let modelVertexNormalBuffer = models[model_name].modelVertexNormalBuffer;
+            let modelVertexFrontColorBuffer = models[model_name].modelVertexFrontColorBuffer;
 
-        // Setup teapot position data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
-                               teapotVertexPositionBuffer.itemSize, 
-                               gl.FLOAT, 
-                               false, 
-                               0, 
-                               0);
+            // Setup Model-View Matrix
+            mat4.identity(mvMatrix);
+            mat4.translate(mvMatrix, [0,0,0]);
+            mat4.translate(mvMatrix, objectConfig[i]['location']);
+            
+            var rotateVec_init = [0,0,0];
+            mat4.rotate(mvMatrix, degToRad(rotateVec_init[0]), [1, 0, 0]);
+            mat4.rotate(mvMatrix, degToRad(rotateVec_init[1]), [0, 1, 0]);
+            mat4.rotate(mvMatrix, degToRad(rotateVec_init[2]), [0, 0, 1]);
+            
+            var rotateVec = objectConfig[i].rotate.axis;
+            mat4.rotate(mvMatrix, degToRad(rotateVec[0]), [1, 0, 0]);
+            mat4.rotate(mvMatrix, degToRad(rotateVec[1] + teapotAngle), [0, 1, 0]);
+            mat4.rotate(mvMatrix, degToRad(rotateVec[2]), [0, 0, 1]);
 
-        // Setup teapot front color data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, 
-                               teapotVertexFrontColorBuffer.itemSize, 
-                               gl.FLOAT, 
-                               false, 
-                               0, 
-                               0);
-        
-        // Setup teapot normal data
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, 
-                               teapotVertexNormalBuffer.itemSize, 
-                               gl.FLOAT, 
-                               false, 
-                               0, 
-                               0);
+            // Apply Scaling
+            var scaleVec = objectConfig[i].scale;
+            mat4.scale(mvMatrix, scaleVec);
 
-        // Setup ambient light and light position
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ka"), ka);
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Kd"), kd);
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ks"), ks);
-        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition1"), light_locations1);
-        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition2"), light_locations2);
-        gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition3"), light_locations3);
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, "Shininess"), 1.0);
+            // Apply Shear
+            var shearMat = getShearMatrix(objectConfig[i].shear);
+            mat4.multiply(mvMatrix, shearMat, mvMatrix);
 
-        // Pass 3D Clipping Planes
-        const clippingPlane = [1.0, 0, 0.0, update_clip_planes()];
-        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "uClippingPlane"), new Float32Array(clippingPlane));
+            gl.useProgram(shaderProgram);
+            setMatrixUniforms(shaderProgram);
+
+            // Setup teapot position data
+            gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
+            modelVertexPositionBuffer.itemSize, 
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+
+            // Setup teapot front color data
+            gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexFrontColorBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, 
+                                modelVertexFrontColorBuffer.itemSize, 
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+            
+            // Setup teapot normal data
+            gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, 
+            modelVertexNormalBuffer.itemSize, 
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+
+            // Setup ambient light and light position
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ka"), ka);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Kd"), kd);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Ks"), ks);
+            gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition1"), light_locations1);
+            gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition2"), light_locations2);
+            gl.uniform3fv(gl.getUniformLocation(shaderProgram, "lightPosition3"), light_locations3);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Shininess"), Shininess);
+
+            // Pass 3D Clipping Planes
+            const clippingPlane = [0.0, 1.0, 0.0, update_clip_planes()];
+            gl.uniform4fv(gl.getUniformLocation(shaderProgram, "uClippingPlane"), new Float32Array(clippingPlane));
 
 
-        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+            gl.drawArrays(gl.TRIANGLES, 0, modelVertexPositionBuffer.numItems);
+            if(objectConfig[i]['shader']== "outline"){
+                gl.enable(gl.CULL_FACE);
+                gl.cullFace(gl.FRONT); // only draw back-facing faces
+
+                shaderProgram = getShaderByName("outline");
+                gl.useProgram(shaderProgram);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+                // Only need MVP matrices
+                setMatrixUniforms(shaderProgram);
+
+                gl.drawArrays(gl.TRIANGLES, 0, modelVertexPositionBuffer.numItems);
+
+                gl.disable(gl.CULL_FACE);
+            }
+        }
     }
 
-    function updateShaders() {
-        var shaderType = document.getElementById("shaderSelect").value;
-        initShaders(shaderType);
+    
+    function getShaderByName(name){
+        if(name == "flat"){
+            return flatShaderProgram;
+        }
+        if(name == "gouraud"){
+            return gouraudShaderProgram;
+        }
+        if(name == "phong"){
+            return phongShaderProgram;
+        }
+        if(name == "blinn"){
+            return blinnShaderProgram;
+        }
+        if(name == "toon"){
+            return toonShaderProgram;
+        }
+        if(name == "outline"){
+            return outlineShaderProgram;
+        }
+        throw "Unknown Shader";
     }
 
     function animate() {
@@ -558,8 +788,13 @@
     function webGLStart() {
         var canvas = document.getElementById("ICG-canvas");
         initGL(canvas);
-        initShaders("gouraud");
-        loadTeapot();
+        flatShaderProgram = initShaders("flat");
+        gouraudShaderProgram = initShaders("gouraud");
+        phongShaderProgram = initShaders("phong");
+        blinnShaderProgram = initShaders("blinn");
+        toonShaderProgram = initShaders("toon");
+        outlineShaderProgram = initShaders("outline");
+        loadModel('Teapot');
 
         gl.clearColor(ka, ka, ka, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -573,6 +808,9 @@
     //*************************************************
     function update_ambient_light(){
         ka = document.getElementById("am_ka").value;
+        kd = document.getElementById("am_kd").value;
+        ks = document.getElementById("am_ks").value;
+        Shininess = document.getElementById("am_shininess").value;
     }
 
     function update_light_location(){
@@ -588,29 +826,26 @@
         light_locations3[1] = document.getElementById("lloc3Y").value;
         light_locations3[2] = document.getElementById("lloc3Z").value;
     }
+
+    function updateShaderForObject(index, name) {
+        objectConfig[index].shader = name;
+    }
+
+    function updateModelForObject(index, name) {
+        objectConfig[index].model = name;
+        loadModel(name); // Make sure the model is loaded
+    }
     
-    function update_trans(){
-        var tx = document.getElementById("transX").value;
-        var ty = document.getElementById("transY").value;
-        var tz = document.getElementById("transZ").value;
-
-        return vec3.create([tx, ty, tz]);
+    function update_trans(index, axis, value){
+        objectConfig[index].location[axis] = value;
     }
 
-    function update_rotate(){
-        var rx = document.getElementById("rotateX").value;
-        var ry = document.getElementById("rotateY").value;
-        var rz = document.getElementById("rotateZ").value;
-
-        return vec3.create([rx, ry, rz]);
+    function update_rotate(index, axis, value){
+        objectConfig[index].rotate.axis[axis] = value;
     }
 
-    function update_scale() {
-        var sx = parseFloat(document.getElementById("scaleX").value);
-        var sy = parseFloat(document.getElementById("scaleY").value);
-        var sz = parseFloat(document.getElementById("scaleZ").value);
-
-        return vec3.create([sx, sy, sz]);
+    function update_scale(index, axis, value){
+        objectConfig[index].scale[axis] = value;
     }
 
     function getShearMatrix(shearValues) {
@@ -627,7 +862,9 @@
         return shearMat;
     }
 
-    function update_shear() {
+    function update_shear(index, axis, value){ 
+        objectConfig[index].shear[axis] = value;
+        
         var shXY = parseFloat(document.getElementById("shearXY").value);
         var shXZ = parseFloat(document.getElementById("shearXZ").value);
         var shYX = parseFloat(document.getElementById("shearYX").value);
@@ -661,21 +898,256 @@
 </head>
 
 <body onload="webGLStart();">
-    <p style="position: absolute; right: 2%; top:6%; ">
+    <p style="position: absolute; right: 20%; top:35%; ">
         <canvas id="ICG-canvas" style="border: none;" width="1060" height="590" ></canvas>
     </p>
-
     <p style="position: absolute; left: 1%; top: 1%; max-width: 30%; min-width: 30%; ">
-
         <p>
-            <label for="shading">Gouraud shading</label>
+            <label for="shading">HW1</label>
         </p>
-
-        </br>
-        <span>Ambient Light</span>
+        <div id="object-controls" style="display: flex; gap: 2rem;">
+            <!-- Object 1 -->
+            <div style="flex: 1;">
+              <h3>Object 1</h3>
+              <label>Model:
+                <select onchange="updateModelForObject(0, this.value)">
+                  <option>Teapot</option>
+                  <option>Csie</option>
+                  <option>Car_road</option>
+                  <option>Fighter</option>
+                  <option>Longteap</option>
+                  <option>Mig27</option>
+                  <option>Plant</option>
+                  <option>Tomcat</option>
+                  <option>Church_s</option>
+                  <option>Easter</option>
+                  <option>Kangaroo</option>
+                  <option>Mercedes</option>
+                  <option>Patchair</option>
+                  <option>Hide</option>
+                </select>
+              </label>
+              <label>Shader:
+                <select onchange="updateShaderForObject(0, this.value)">
+                  <option value="flat">Flat</option>
+                  <option value="gouraud">Gouraud</option>
+                  <option value="phong">Phong</option>
+                  <option value="blinn">Blinn-Phong</option>
+                  <option value="toon">Toon</option>
+                  <option value="outline">Toon+Outline</option>
+                </select>
+              </label>
+              <div>
+                <table>
+                    <tr>
+                    <th></th>
+                    <th>X axis</th>
+                    <th>Y axis</th>
+                    <th>Z axis</th>
+                    </tr>
+                    <tr>
+                        <td>Trans.</td>
+                        <td><input id="transX" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(0, 0, this.value)"></td>
+                        <td><input id="transY" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(0, 1, this.value)"></td>
+                        <td><input id="transZ" type="range" autocomplete="off" value="-50." max="0." min="-120." oninput="update_trans(0, 2, this.value)"></td>
+                    </tr>
+                    <tr>
+                        <td>Rotate</td>
+                        <td><input id="rotateX" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(0, 0, this.value)"></td>
+                        <td><input id="rotateY" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(0, 1, this.value)"></td>
+                        <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(0, 2, this.value)"></td>
+                    </tr>
+                </table>
+                <span>Scale</span>
+                <table>
+                    <tr>
+                        <td>X: <input id="scaleX" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(0, 0, this.value)"></td>
+                        <td>Y: <input id="scaleY" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(0, 1, this.value)"></td>
+                        <td>Z: <input id="scaleZ" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(0, 2, this.value)"></td>
+                    </tr>
+                </table>
+                <span>Shear</span>
+                <table>
+                    <tr>
+                        <td>XY: <input id="shearXY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 0, this.value)"></td>
+                        <td>XZ: <input id="shearXZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 1, this.value)"></td>
+                    </tr>
+                    <tr>
+                        <td>YX: <input id="shearYX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 2, this.value)"></td>
+                        <td>YZ: <input id="shearYZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 3, this.value)"></td>
+                    </tr>
+                    <tr>
+                        <td>ZX: <input id="shearZX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 4, this.value)"></td>
+                        <td>ZY: <input id="shearZY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(0, 5, this.value)"></td>
+                    </tr>
+                </table>
+              </div>
+            </div>
+          
+            <!-- Repeat for Object 2 -->
+            <div style="flex: 1;">
+                <h3>Object 2</h3>
+                <label>Model:
+                  <select onchange="updateModelForObject(1, this.value)">
+                    <option>Teapot</option>
+                    <option>Csie</option>
+                    <option>Car_road</option>
+                    <option>Fighter</option>
+                    <option>Longteap</option>
+                    <option>Mig27</option>
+                    <option>Plant</option>
+                    <option>Tomcat</option>
+                    <option>Church_s</option>
+                    <option>Easter</option>
+                    <option>Kangaroo</option>
+                    <option>Mercedes</option>
+                    <option>Patchair</option>
+                    <option>Hide</option>
+                  </select>
+                </label>
+                <label>Shader:
+                  <select onchange="updateShaderForObject(1, this.value)">
+                    <option value="flat">Flat</option>
+                    <option value="gouraud" selected>Gouraud</option>
+                    <option value="phong">Phong</option>
+                    <option value="blinn">Blinn-Phong</option>
+                    <option value="toon">Toon</option>
+                    <option value="outline">Toon+Outline</option>
+                  </select>
+                </label>
+                <div>
+                  <table>
+                      <tr>
+                      <th></th>
+                      <th>X axis</th>
+                      <th>Y axis</th>
+                      <th>Z axis</th>
+                      </tr>
+                      <tr>
+                          <td>Trans.</td>
+                          <td><input id="transX" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(1, 0, this.value)"></td>
+                          <td><input id="transY" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(1, 1, this.value)"></td>
+                          <td><input id="transZ" type="range" autocomplete="off" value="-50." max="0." min="-120." oninput="update_trans(1, 2, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>Rotate</td>
+                          <td><input id="rotateX" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(1, 0, this.value)"></td>
+                          <td><input id="rotateY" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(1, 1, this.value)"></td>
+                          <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(1, 2, this.value)"></td>
+                      </tr>
+                  </table>
+                  <span>Scale</span>
+                  <table>
+                      <tr>
+                          <td>X: <input id="scaleX" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(1, 0, this.value)"></td>
+                          <td>Y: <input id="scaleY" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(1, 1, this.value)"></td>
+                          <td>Z: <input id="scaleZ" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(1, 2, this.value)"></td>
+                      </tr>
+                  </table>
+                  <span>Shear</span>
+                  <table>
+                      <tr>
+                          <td>XY: <input id="shearXY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 0, this.value)"></td>
+                          <td>XZ: <input id="shearXZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 1, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>YX: <input id="shearYX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 2, this.value)"></td>
+                          <td>YZ: <input id="shearYZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 3, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>ZX: <input id="shearZX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 4, this.value)"></td>
+                          <td>ZY: <input id="shearZY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(1, 5, this.value)"></td>
+                      </tr>
+                  </table>
+                </div>
+              </div>
+          
+            <!-- Repeat for Object 3 -->
+            <div style="flex: 1;">
+                <h3>Object 3</h3>
+                <label>Model:
+                  <select onchange="updateModelForObject(2, this.value)">
+                    <option>Teapot</option>
+                    <option>Csie</option>
+                    <option>Car_road</option>
+                    <option>Fighter</option>
+                    <option>Longteap</option>
+                    <option>Mig27</option>
+                    <option>Plant</option>
+                    <option>Tomcat</option>
+                    <option>Church_s</option>
+                    <option>Easter</option>
+                    <option>Kangaroo</option>
+                    <option>Mercedes</option>
+                    <option>Patchair</option>
+                    <option>Hide</option>
+                  </select>
+                </label>
+                <label>Shader:
+                  <select onchange="updateShaderForObject(2, this.value)">
+                    <option value="flat">Flat</option>
+                    <option value="gouraud">Gouraud</option>
+                    <option value="phong" selected>Phong</option>
+                    <option value="blinn">Blinn-Phong</option>
+                    <option value="toon">Toon</option>
+                    <option value="outline">Toon+Outline</option>
+                  </select>
+                </label>
+                <div>
+                  <table>
+                      <tr>
+                      <th></th>
+                      <th>X axis</th>
+                      <th>Y axis</th>
+                      <th>Z axis</th>
+                      </tr>
+                      <tr>
+                          <td>Trans.</td>
+                          <td><input id="transX" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(2, 0, this.value)"></td>
+                          <td><input id="transY" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans(2, 1, this.value)"></td>
+                          <td><input id="transZ" type="range" autocomplete="off" value="-50." max="0." min="-120." oninput="update_trans(2, 2, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>Rotate</td>
+                          <td><input id="rotateX" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(2, 0, this.value)"></td>
+                          <td><input id="rotateY" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(2, 1, this.value)"></td>
+                          <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate(2, 2, this.value)"></td>
+                      </tr>
+                  </table>
+                  <span>Scale</span>
+                  <table>
+                      <tr>
+                          <td>X: <input id="scaleX" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(2, 0, this.value)"></td>
+                          <td>Y: <input id="scaleY" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(2, 1, this.value)"></td>
+                          <td>Z: <input id="scaleZ" type="range" autocomplete="off" value="1" max="30" min="0.1" step="0.1" oninput="update_scale(2, 2, this.value)"></td>
+                      </tr>
+                  </table>
+                  <span>Shear</span>
+                  <table>
+                      <tr>
+                          <td>XY: <input id="shearXY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 0, this.value)"></td>
+                          <td>XZ: <input id="shearXZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 1, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>YX: <input id="shearYX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 2, this.value)"></td>
+                          <td>YZ: <input id="shearYZ" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 3, this.value)"></td>
+                      </tr>
+                      <tr>
+                          <td>ZX: <input id="shearZX" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 4, this.value)"></td>
+                          <td>ZY: <input id="shearZY" type="range" autocomplete="off" value="0" max="1" min="-1" step="0.1" oninput="update_shear(2, 5, this.value)"></td>
+                      </tr>
+                  </table>
+                </div>
+              </div>
+        </div>
+        <h3>Light Control</h3>
+        <span>Light </span>
         <table>
             <tr>
                 <td>Ka: <input style="max-width: 70%; vertical-align: middle;" id="am_ka" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Kd: <input style="max-width: 70%; vertical-align: middle;" id="am_kd" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Ks: <input style="max-width: 70%; vertical-align: middle;" id="am_ks" type="range" autocomplete="off" value="0.1" max="1." min="0." step="0.05" oninput="update_ambient_light()"></td>
+                <td>Shininess: <input style="max-width: 70%; vertical-align: middle;" id="am_shininess" type="range" autocomplete="off" value="0.1" max="100." min="1." step="1" oninput="update_ambient_light()"></td>
             </tr>
         </table>
         </br>
@@ -703,63 +1175,7 @@
                 <td>Z: <input style="max-width: 70%; vertical-align: middle;" id="lloc3Z" type="range" autocomplete="off" value="-25." max="0." min="-75." oninput="update_light_location()"></td>
             </tr>
         </table>
-        </br>
-        </br>
-        </br>
-
-        <span>Object</span>
-        <table>
-            <tr>
-            <th></th>
-            <th>X axis</th>
-            <th>Y axis</th>
-            <th>Z axis</th>
-            </tr>
-            <tr>
-                <td>Trans.</td>
-                <td><input id="transX" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans()"></td>
-                <td><input id="transY" type="range" autocomplete="off" value="0." max="50." min="-50." oninput="update_trans()"></td>
-                <td><input id="transZ" type="range" autocomplete="off" value="-50." max="0." min="-120." oninput="update_trans()"></td>
-            </tr>
-            <tr>
-                <td>Rotate</td>
-                <td><input id="rotateX" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate()"></td>
-                <td><input id="rotateY" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate()"></td>
-                <td><input id="rotateZ" type="range" autocomplete="off" value="0." max="180." min="-180." oninput="update_rotate()"></td>
-            </tr>
-        </table>
-        <span>Scale</span>
-        <table>
-            <tr>
-                <td>X: <input id="scaleX" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
-                <td>Y: <input id="scaleY" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
-                <td>Z: <input id="scaleZ" type="range" value="1" max="3" min="0.1" step="0.1" oninput="update_scale()"></td>
-            </tr>
-        </table>
-        <span>Shear</span>
-        <table>
-            <tr>
-                <td>XY: <input id="shearXY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-                <td>XZ: <input id="shearXZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-            </tr>
-            <tr>
-                <td>YX: <input id="shearYX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-                <td>YZ: <input id="shearYZ" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-            </tr>
-            <tr>
-                <td>ZX: <input id="shearZX" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-                <td>ZY: <input id="shearZY" type="range" value="0" max="1" min="-1" step="0.1" oninput="update_shear()"></td>
-            </tr>
-        </table>
-        <p style="position: absolute; left: 1%; top: 1%; max-width: 30%; min-width: 30%; ">
-            <span>Shading Model</span>
-            <select id="shaderSelect" onchange="updateShaders()">
-                <option value="gouraud">Gouraud</option>
-                <option value="flat">Flat</option>
-                <option value="phong">Phong</option>
-            </select>
-        </p>
-        <span>3D Clipping</span>
+        <h3>3D Clipping</h3>
         <table>
             <tr>
                 <td>Threshold: <input id="clipX" type="range" value="18" min="-18" max="18" step="0.5"></td>

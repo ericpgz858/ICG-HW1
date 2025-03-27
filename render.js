@@ -133,7 +133,7 @@ function initShaders(shaderType) {
 function initTexture() {
     yourTexture = gl.createTexture();
     var image = new Image();
-    image.src = "./model/Ring.png";  // adjust the path
+    image.src = "./model/metal1.jpg";  // adjust the path
     image.onload = function () {
         handleTextureLoaded(image, yourTexture);
     };

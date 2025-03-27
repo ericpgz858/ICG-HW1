@@ -179,11 +179,14 @@ function handleLoadedModel(modelData, name) {
     modelVertexFrontColorBuffer.itemSize = 3;
     modelVertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
 
-    let modelVertexTextureCoordBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexTextureCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexTextureCoords), gl.STATIC_DRAW);
-    modelVertexTextureCoordBuffer.itemSize = 2;
-    modelVertexTextureCoordBuffer.numItems = modelData.vertexTextureCoords.length / 2;
+    let modelVertexTextureCoordBuffer = null;
+    if (modelData.vertexTextureCoords) {
+        modelVertexTextureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexTextureCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexTextureCoords), gl.STATIC_DRAW);
+        modelVertexTextureCoordBuffer.itemSize = 2;
+        modelVertexTextureCoordBuffer.numItems = modelData.vertexTextureCoords.length / 2;
+    }
 
     models[name] = {
         modelVertexPositionBuffer: modelVertexPositionBuffer,
